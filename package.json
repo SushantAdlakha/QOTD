@@ -1,0 +1,21 @@
+{
+  "name": "datestiny",
+  "version": "1.0.0",
+  "description": "Datestiny — a daily 'On This Day' history trivia game. One question, three hints, one shot.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "keywords": [
+    "trivia",
+    "history",
+    "question-of-the-day",
+    "game",
+    "on-this-day"
+  ],
+  "license": "MIT"
+}

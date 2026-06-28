@@ -1,23 +1,24 @@
 # 📜 Datestiny — Question of the Day
 
-A daily **"On This Day"** history trivia game. Every calendar date carries a
-question drawn from a real historical event, birthday, or milestone tied to
-that day. You get **three hints** and **one shot at glory** — the fewer hints
-and wrong guesses you use, the higher your score.
+A daily **"On This Day"** guessing game. Each calendar date hides one
+well-known answer tied to that day — a birthday, a release, or an event —
+drawn from **music, film, sport, art, books, science and pop culture**.
 
-It's the same puzzle for everyone on a given day, so you can compare results
-and brag with a Wordle-style share card.
+The board shows **12 closed tiles**, each hiding a short clue. Open as few
+as you can, name the answer, and the reveal explains every one of the twelve
+clues. It's the same puzzle for everyone on a given day, so you can compare
+scores and brag with an emoji share card.
+
+▶️ **Play:** https://sushantadlakha.github.io/QOTD/
 
 ## How to play
 
-1. **One question a day** — based on something that actually happened on
-   today's date.
-2. **Three hints**, revealed in order. Hint&nbsp;1 is cryptic; each one gets
-   warmer until Hint&nbsp;3 nearly gives it away.
+1. **One puzzle a day** — a famous person or thing connected to today's date.
+2. **Twelve tiles, all closed.** Tap any tile to reveal a short clue.
 3. **Guess any time.** Answer matching is forgiving — minor typos and partial
    names are accepted.
-4. **Score:** you start at **100**. Revealing Hint&nbsp;2 or Hint&nbsp;3 costs
-   −20 each, and every wrong guess costs −10. Hint&nbsp;1 is free.
+4. **Score:** you start at **100**. Every tile you open costs **−8**, and each
+   wrong guess costs **−10**. Open as few tiles as you can.
 5. **Share** your result and keep your **🔥 daily streak** alive.
 
 Try a random past day any time with **"Play a random past day"** (practice
@@ -25,12 +26,13 @@ mode — it doesn't affect your streak).
 
 ## Features
 
-- 🗓️ **Deterministic daily puzzle** — same question for everyone, every day.
-- 🧩 **Progressive hint system** — toughest → easiest, with score penalties.
+- 🗓️ **Deterministic daily puzzle** — same board for everyone, every day.
+- 🟦 **12-tile reveal board** — open clues one at a time; score drops per tile.
+- 🎭 **Every genre** — music, film, sport, art, literature, science, pop culture.
+- 💡 **Full explanation** — the reveal decodes all 12 clues.
 - ✍️ **Fuzzy answer matching** — Levenshtein tolerance + partial/alias matching.
 - 🔥 **Streaks & progress** persisted in `localStorage`.
-- 📤 **Native share / clipboard** emoji result card.
-- 🎴 **Practice mode** to replay historical days.
+- 📤 **Native share / clipboard** emoji result grid.
 - 🌌 No build step, no runtime dependencies, fully responsive.
 
 ## Run locally
@@ -40,65 +42,52 @@ npm start
 # → open http://localhost:8080
 ```
 
-(Any static file server works too — e.g. `python3 -m http.server -d public`.)
+(Any static file server works too — e.g. `python3 -m http.server`.)
 
 ## Deploy
 
-### Fly.io (like the reference)
-
-```bash
-fly launch        # first time, uses the included fly.toml
-fly deploy
-```
-
-### Docker
-
-```bash
-docker build -t datestiny .
-docker run -p 8080:8080 datestiny
-```
-
-### Static hosts (GitHub Pages, Netlify, Vercel)
-
-The entire app lives in `public/` and is 100% static — point any static host
-at that folder.
+The whole app is static (`index.html`, `styles.css`, `game.js`,
+`questions.js`). A GitHub Actions workflow auto-publishes it to GitHub Pages
+on every push. It also runs anywhere via the bundled Node server, Docker, or
+Fly.io (`fly deploy`).
 
 ## Project structure
 
 ```
 .
-├── public/
-│   ├── index.html      # markup & layout
-│   ├── styles.css      # "celestial almanac" theme
-│   ├── game.js         # game logic, scoring, streaks, sharing
-│   └── questions.js    # the "On This Day" question bank (MM-DD keyed)
-├── server.js           # tiny zero-dependency static server
+├── index.html       # markup & 12-tile board
+├── styles.css       # "celestial almanac" theme + TV-style reveal tiles
+├── game.js          # tile/scoring logic, streaks, sharing
+├── questions.js     # the date-keyed question bank
+├── server.js        # tiny zero-dependency static server
+├── .nojekyll        # serve files as-is on GitHub Pages
 ├── Dockerfile
 ├── fly.toml
-└── package.json
+└── .github/workflows/pages.yml
 ```
 
 ## Adding questions
 
-Open `public/questions.js` and add an entry keyed by `"MM-DD"`:
+Open `questions.js` and add an entry keyed by `"MM-DD"`:
 
 ```js
-"03-14": {
-  category: "Birthday",
-  year: 1879,
-  prompt: "Which physicist was born on this 'Pi Day'?",
-  answers: ["Albert Einstein", "Einstein"],   // first = canonical, rest = aliases
-  hints: [
-    "Cryptic clue (toughest).",
-    "Warmer clue.",
-    "Near giveaway."
+"08-29": {
+  category: "Musician",
+  year: 1958,
+  answers: ["Michael Jackson", "MJ"],   // first = canonical, rest = aliases
+  tiles: [                               // exactly 12 short clues
+    "Born in Gary, Indiana", "Led a family group of five", "'Thriller'", "The moonwalk",
+    "Crowned 'King of Pop'", "A single sequined glove", "A ranch called Neverland", "Motown beginnings",
+    "'Billie Jean'", "Produced by Quincy Jones", "'Bad' and 'Off the Wall'", "Died in 2009"
   ],
-  funFact: "A surprising tidbit shown on the result screen."
+  // explanation should decode every tile, numbered (1)…(12)
+  explanation: "Michael Jackson was born in Gary, Indiana (1) …"
 }
 ```
 
-Dates without their own entry fall back deterministically to an existing
-question, so every day always has a puzzle.
+Rules of thumb: the answer must never appear inside a tile, keep clues terse,
+and make the explanation account for all twelve. Dates without their own entry
+fall back deterministically to an existing one, so every day has a puzzle.
 
 ---
 

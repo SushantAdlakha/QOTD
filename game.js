@@ -1,4 +1,4 @@
-/* Datestiny — daily "On This Day" 12-tile reveal game. */
+/* Datestiny, daily "On This Day" 12-tile reveal game. */
 (function () {
   "use strict";
 
@@ -25,6 +25,7 @@
   var els = {
     dateBadge: $("dateBadge"),
     categoryBadge: $("categoryBadge"),
+    quoteLine: $("quoteLine"),
     lede: $("lede"),
     tileGrid: $("tileGrid"),
     guessForm: $("guessForm"),
@@ -56,10 +57,38 @@
   var MONTHS = ["January","February","March","April","May","June","July",
     "August","September","October","November","December"];
 
+  // A wink to Forrest Gump. One is shown each day, picked by the date.
+  var QUOTES = [
+    "My mama always said life is like a box of tiles, you never know which clue you're gonna get.",
+    "I'm not a smart man, but I know what today's answer is.",
+    "Stupid is as stupid does, but a wise guesser opens fewer tiles.",
+    "Mama says the fewer tiles you flip, the sweeter the chocolate.",
+    "Run, guess, run. That's all I have to say about that.",
+    "Life's a mystery box, and every tile is a chocolate you haven't tasted yet."
+  ];
+
+  function quoteOfTheDay(d) {
+    var dayNum = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())) / 86400000);
+    return QUOTES[((dayNum % QUOTES.length) + QUOTES.length) % QUOTES.length];
+  }
+
   // ===================== helpers =====================
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
   function keyFromDate(d) { return pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function prettyDate(d) { return MONTHS[d.getMonth()] + " " + d.getDate(); }
+
+  // "Today" is anchored to India Standard Time (UTC+5:30), so the puzzle
+  // rolls over for everyone at midnight IST regardless of local timezone.
+  // We return a Date whose UTC fields hold the IST wall-clock values, then
+  // read them with getMonth()/getDate(), etc.
+  function nowIST() {
+    var now = new Date();
+    var istMs = now.getTime() + now.getTimezoneOffset() * 60000 + 5.5 * 3600000;
+    var d = new Date(istMs);
+    // tag it so callers can compute the next IST midnight precisely
+    d._istBaseMs = istMs;
+    return d;
+  }
 
   function pickQuestion(key) {
     var bank = window.QUESTIONS || {};
@@ -228,9 +257,9 @@
     renderTries();
     saveProgress();
     if (verdict === "close") {
-      setFeedback("So close! You're on the right track — refine it.", "close");
+      setFeedback("So close! You're on the right track, refine it.", "close");
     } else {
-      var msgs = ["Not quite. Open another tile?", "Nope — try another clue.", "Wrong, but keep going.", "Missed it. A tile might help."];
+      var msgs = ["Not quite. Open another tile?", "Nope, try another clue.", "Wrong, but keep going.", "Missed it. A tile might help."];
       setFeedback(msgs[Math.min(state.wrongGuesses - 1, msgs.length - 1)], "wrong");
     }
     els.guessInput.select();
@@ -270,7 +299,7 @@
   // ===================== share =====================
   function buildShareText() {
     var score = state.solved ? currentScore() : 0;
-    var line = "📜 Datestiny — " + prettyDate(state.dateObj);
+    var line = "📜 Datestiny, " + prettyDate(state.dateObj);
     // 12-tile grid: opened = 🟦, unopened = ⬛
     var grid = "";
     for (var i = 0; i < TILE_COUNT; i++) {
@@ -287,7 +316,7 @@
     var text = buildShareText();
     if (navigator.share) { navigator.share({ title: "Datestiny", text: text }).catch(function () {}); return; }
     copyText(text).then(function () { toast("Result copied to clipboard!"); },
-                        function () { toast("Couldn't copy — select and copy manually."); });
+                        function () { toast("Couldn't copy, select and copy manually."); });
   }
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
@@ -307,14 +336,16 @@
     toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 2200);
   }
 
-  // ===================== countdown =====================
+  // ===================== countdown (to next IST midnight) =====================
   function startCountdown() {
     function tick() {
-      var now = new Date();
-      var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
-      var diff = next - now;
+      var ist = nowIST();
+      // next IST midnight in the same shifted clock space
+      var nextMidnight = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + 1, 0, 0, 0);
+      var diff = nextMidnight - ist._istBaseMs;
+      if (diff < 0) diff = 0;
       var h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
-      els.countdown.textContent = "Next question in " + pad(h) + ":" + pad(m) + ":" + pad(s);
+      els.countdown.textContent = "Next puzzle in " + pad(h) + ":" + pad(m) + ":" + pad(s) + " IST";
     }
     tick(); setInterval(tick, 1000);
   }
@@ -335,7 +366,7 @@
 
   // ===================== boot =====================
   function loadPuzzle(forceKey, isPractice) {
-    var today = new Date();
+    var today = nowIST();
     var key = forceKey || keyFromDate(today);
     var picked = pickQuestion(key);
     if (!picked) { els.lede.textContent = "No questions available."; return; }
@@ -359,8 +390,9 @@
 
     els.dateBadge.textContent = isPractice ? "Flashback · " + monthDayLabel(picked.key) : "On this day · " + prettyDate(today);
     els.categoryBadge.textContent = state.question.category || "Mystery";
+    if (els.quoteLine) els.quoteLine.textContent = quoteOfTheDay(today);
     els.lede.textContent = state.practice
-      ? "Practice round — a past day. Streak not affected. Open as few tiles as you can."
+      ? "Practice round, a past day. Streak not affected. Open as few tiles as you can."
       : "Twelve clues hide behind these tiles. Open as few as you can, then name what links them. Each tile costs points.";
 
     els.gameCard.classList.remove("hidden");
@@ -409,7 +441,7 @@
 
     $("streakChip").addEventListener("click", function () {
       var s = getStreak();
-      toast(s > 0 ? "🔥 " + s + "-day streak — keep it going!" : "Solve today's puzzle to start a streak!");
+      toast(s > 0 ? "🔥 " + s + "-day streak, keep it going!" : "Solve today's puzzle to start a streak!");
     });
   }
 

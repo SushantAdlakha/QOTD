@@ -1,6 +1,6 @@
 /*
  * Minimal static file server for Datestiny.
- * No third-party dependencies — runs anywhere Node 14+ is available.
+ * No third-party dependencies, runs anywhere Node 14+ is available.
  */
 const http = require("http");
 const fs = require("fs");

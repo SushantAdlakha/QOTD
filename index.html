@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Datestiny — a daily 'On This Day' history puzzle. Twelve closed tiles, each a clue. Open as few as you can and name the answer." />
+  <meta name="description" content="Datestiny, a daily 'On This Day' history puzzle. Twelve closed tiles, each a clue. Open as few as you can and name the answer." />
   <meta name="theme-color" content="#0f1226" />
   <title>Datestiny · Question of the Day</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9C%3C/text%3E%3C/svg%3E" />
@@ -35,6 +35,8 @@
         <span class="date-badge" id="dateBadge">On This Day</span>
         <span class="category-badge" id="categoryBadge">Mystery</span>
       </div>
+
+      <p class="quote" id="quoteLine"></p>
 
       <p class="lede" id="lede">Twelve clues hide behind these tiles. Open as few as you can, then name what links them. Each tile you open costs points.</p>
 
@@ -72,7 +74,7 @@
     <section class="card result-card hidden" id="resultCard">
       <div class="result-emoji" id="resultEmoji">🎉</div>
       <h2 class="result-title" id="resultTitle">Solved!</h2>
-      <p class="result-answer">The answer was <strong id="resultAnswer">—</strong></p>
+      <p class="result-answer">The answer was <strong id="resultAnswer">, </strong></p>
       <div class="result-score">
         <div class="big-score" id="bigScore">100</div>
         <div class="stars-rating" id="starsRating">⭐️⭐️⭐️</div>
@@ -90,7 +92,7 @@
   </main>
 
   <footer class="footer">
-    <span id="countdown">Next question in —</span>
+    <span id="countdown">Next question in, </span>
     <span class="dot">·</span>
     <span>Made for the curious</span>
   </footer>
@@ -101,10 +103,10 @@
       <button class="modal-close" id="modalClose" aria-label="Close">×</button>
       <h2>How to play</h2>
       <ol class="rules">
-        <li>Each day hides <strong>one answer</strong> tied to today's date — a person, an event, or a thing.</li>
+        <li>Each day hides <strong>one answer</strong> tied to today's date, a person, an event, or a thing.</li>
         <li>The board has <strong>12 tiles</strong>, all closed. Tap any tile to reveal a <strong>short clue</strong>.</li>
         <li>You can guess <strong>at any time</strong>. Spelling is forgiving; just get the gist.</li>
-        <li>You start at <strong>100 points</strong>. Every tile you open costs <strong>−8</strong>, and each wrong guess costs <strong>−10</strong>.</li>
+        <li>You start at <strong>100 points</strong>. Every tile you open costs <strong>-8</strong>, and each wrong guess costs <strong>-10</strong>.</li>
         <li>Open as few tiles as you can, then <strong>share</strong> your score and keep your <strong>🔥 streak</strong> alive.</li>
       </ol>
       <div class="scoring-note">

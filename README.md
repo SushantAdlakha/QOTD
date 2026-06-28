@@ -1,8 +1,7 @@
-# 📜 Datestiny — Question of the Day
+# 📜 Datestiny, Question of the Day
 
 A daily **"On This Day"** guessing game. Each calendar date hides one
-well-known answer tied to that day — a birthday, a release, or an event —
-drawn from **music, film, sport, art, books, science and pop culture**.
+well-known answer tied to that day, a birthday, a release, or an event, drawn from **music, film, sport, art, books, science and pop culture**.
 
 The board shows **12 closed tiles**, each hiding a short clue. Open as few
 as you can, name the answer, and the reveal explains every one of the twelve
@@ -13,24 +12,24 @@ scores and brag with an emoji share card.
 
 ## How to play
 
-1. **One puzzle a day** — a famous person or thing connected to today's date.
+1. **One puzzle a day**, a famous person or thing connected to today's date.
 2. **Twelve tiles, all closed.** Tap any tile to reveal a short clue.
-3. **Guess any time.** Answer matching is forgiving — minor typos and partial
+3. **Guess any time.** Answer matching is forgiving, minor typos and partial
    names are accepted.
-4. **Score:** you start at **100**. Every tile you open costs **−8**, and each
-   wrong guess costs **−10**. Open as few tiles as you can.
+4. **Score:** you start at **100**. Every tile you open costs **-8**, and each
+   wrong guess costs **-10**. Open as few tiles as you can.
 5. **Share** your result and keep your **🔥 daily streak** alive.
 
 Try a random past day any time with **"Play a random past day"** (practice
-mode — it doesn't affect your streak).
+mode, it doesn't affect your streak).
 
 ## Features
 
-- 🗓️ **Deterministic daily puzzle** — same board for everyone, every day.
-- 🟦 **12-tile reveal board** — open clues one at a time; score drops per tile.
-- 🎭 **Every genre** — music, film, sport, art, literature, science, pop culture.
-- 💡 **Full explanation** — the reveal decodes all 12 clues.
-- ✍️ **Fuzzy answer matching** — Levenshtein tolerance + partial/alias matching.
+- 🗓️ **Deterministic daily puzzle**, same board for everyone, every day.
+- 🟦 **12-tile reveal board**, open clues one at a time; score drops per tile.
+- 🎭 **Every genre**, music, film, sport, art, literature, science, pop culture.
+- 💡 **Full explanation**, the reveal decodes all 12 clues.
+- ✍️ **Fuzzy answer matching**, Levenshtein tolerance + partial/alias matching.
 - 🔥 **Streaks & progress** persisted in `localStorage`.
 - 📤 **Native share / clipboard** emoji result grid.
 - 🌌 No build step, no runtime dependencies, fully responsive.
@@ -42,7 +41,7 @@ npm start
 # → open http://localhost:8080
 ```
 
-(Any static file server works too — e.g. `python3 -m http.server`.)
+(Any static file server works too, e.g. `python3 -m http.server`.)
 
 ## Deploy
 

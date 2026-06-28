@@ -59,19 +59,19 @@
 
   // ===================== helpers =====================
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
-  function keyFromDate(d) { return pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
-  function prettyDate(d) { return MONTHS[d.getMonth()] + " " + d.getDate(); }
+  // Dates produced by nowIST() carry IST wall-clock values in their UTC
+  // fields, so we always read them with getUTC* for consistency.
+  function keyFromDate(d) { return pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()); }
+  function prettyDate(d) { return MONTHS[d.getUTCMonth()] + " " + d.getUTCDate(); }
 
-  // "Today" is anchored to India Standard Time (UTC+5:30), so the puzzle
-  // rolls over for everyone at midnight IST regardless of local timezone.
-  // We return a Date whose UTC fields hold the IST wall-clock values, then
-  // read them with getMonth()/getDate(), etc.
+  // "Today" is anchored to India Standard Time (UTC+5:30, no daylight
+  // saving), so the puzzle rolls over for everyone at midnight IST,
+  // independent of the viewer's local timezone. Date.now() is an absolute
+  // epoch value, so we just add the fixed IST offset and read UTC fields.
   function nowIST() {
-    var now = new Date();
-    var istMs = now.getTime() + now.getTimezoneOffset() * 60000 + 5.5 * 3600000;
+    var istMs = Date.now() + 5.5 * 3600000;
     var d = new Date(istMs);
-    // tag it so callers can compute the next IST midnight precisely
-    d._istBaseMs = istMs;
+    d._istBaseMs = istMs;   // used to compute the next IST midnight
     return d;
   }
 
@@ -183,7 +183,7 @@
       if (last === todayKey) return getStreak();
       var streak = getStreak();
       var y = new Date(state.dateObj.getTime() - 86400000);
-      var yKey = keyFromDate(y) + ":" + y.getFullYear();
+      var yKey = keyFromDate(y) + ":" + y.getUTCFullYear();
       streak = (last === yKey) ? streak + 1 : 1;
       localStorage.setItem(LS_STREAK, String(streak));
       localStorage.setItem(LS_LASTPLAYED, todayKey);
@@ -255,7 +255,7 @@
     state.failed = !won;
     state.finished = true;
     saveProgress();
-    var streak = won ? bumpStreak(state.key + ":" + state.dateObj.getFullYear()) : getStreak();
+    var streak = won ? bumpStreak(state.key + ":" + state.dateObj.getUTCFullYear()) : getStreak();
     els.streakValue.textContent = streak;
     renderBoard();   // reveal all tiles
     showResult(won);

@@ -31,10 +31,10 @@ jobs:
           # Auto-enable GitHub Pages (build via Actions) if not already on.
           enablement: true
 
-      - name: Upload static site (public/)
+      - name: Upload static site (repo root)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: .
 
       - name: Deploy to GitHub Pages
         id: deployment

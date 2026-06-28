@@ -1,39 +1,36 @@
-/* Datestiny — daily "On This Day" history trivia. */
+/* Datestiny — daily "On This Day" 12-tile reveal game. */
 (function () {
   "use strict";
 
-  // ---- Scoring constants ----
-  var BASE_SCORE = 100;
-  var HINT_COST = [0, 20, 20];   // cost to reveal hint 1, 2, 3
-  var WRONG_GUESS_COST = 10;
+  // ---- Scoring ----
+  var MAX_SCORE = 100;
+  var TILE_COST = 8;        // points lost per tile opened
+  var WRONG_COST = 10;      // points lost per wrong guess
+  var TILE_COUNT = 12;
 
   // ---- State ----
   var state = {
-    key: null,        // "MM-DD" puzzle key
+    key: null,
     dateObj: null,
     question: null,
-    hintsRevealed: 0,
+    opened: [],          // indexes of opened tiles, in order
     wrongGuesses: 0,
     solved: false,
     failed: false,
     finished: false,
-    practice: false   // true when replaying a random past day
+    practice: false
   };
 
-  // ---- DOM ----
   var $ = function (id) { return document.getElementById(id); };
   var els = {
     dateBadge: $("dateBadge"),
     categoryBadge: $("categoryBadge"),
-    question: $("questionText"),
     lede: $("lede"),
-    hints: $("hints"),
+    tileGrid: $("tileGrid"),
     guessForm: $("guessForm"),
     guessInput: $("guessInput"),
-    guessBtn: $("guessBtn"),
     feedback: $("feedback"),
     scoreNum: $("scoreNum"),
-    triesDots: $("triesDots"),
     triesText: $("triesText"),
     giveUpBtn: $("giveUpBtn"),
     gameCard: $("gameCard"),
@@ -43,6 +40,7 @@
     resultAnswer: $("resultAnswer"),
     bigScore: $("bigScore"),
     starsRating: $("starsRating"),
+    resultTiles: $("resultTiles"),
     funFact: $("funFact"),
     shareBtn: $("shareBtn"),
     practiceBtn: $("practiceBtn"),
@@ -58,43 +56,31 @@
   var MONTHS = ["January","February","March","April","May","June","July",
     "August","September","October","November","December"];
 
-  // ======================================================================
-  // Helpers
-  // ======================================================================
-
+  // ===================== helpers =====================
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
-
   function keyFromDate(d) { return pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
-
   function prettyDate(d) { return MONTHS[d.getMonth()] + " " + d.getDate(); }
 
-  // Pick the puzzle for a given "MM-DD". If that date has no question,
-  // deterministically fall back to one of the available questions so every
-  // day still has a puzzle.
   function pickQuestion(key) {
     var bank = window.QUESTIONS || {};
-    if (bank[key]) return { key: key, q: bank[key], exact: true };
-
+    if (bank[key]) return { key: key, q: bank[key] };
     var keys = Object.keys(bank).sort();
     if (!keys.length) return null;
-    // deterministic index from the date digits
     var seed = parseInt(key.replace("-", ""), 10);
     var chosen = keys[seed % keys.length];
-    return { key: chosen, q: bank[chosen], exact: false };
+    return { key: chosen, q: bank[chosen] };
   }
 
-  // Normalize a guess/answer for fuzzy comparison.
   function normalize(s) {
     return (s || "")
       .toLowerCase()
       .replace(/&/g, " and ")
-      .replace(/[^a-z0-9 ]/g, " ")     // drop punctuation
-      .replace(/\b(the|a|an|of|on|in)\b/g, " ") // drop filler words
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\b(the|a|an|of|on|in)\b/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  // Levenshtein distance, capped for performance.
   function editDistance(a, b) {
     var m = a.length, n = b.length;
     if (Math.abs(m - n) > 3) return 99;
@@ -111,22 +97,18 @@
     return prev[n];
   }
 
-  // Returns "right" | "close" | "wrong"
   function checkGuess(guess, answers) {
     var g = normalize(guess);
     if (!g) return "wrong";
-    var i, ans, tolerance;
+    var i, ans, tol;
     for (i = 0; i < answers.length; i++) {
       ans = normalize(answers[i]);
       if (!ans) continue;
       if (g === ans) return "right";
-      // allow small typos proportional to answer length
-      tolerance = ans.length > 12 ? 3 : (ans.length > 6 ? 2 : 1);
-      if (editDistance(g, ans) <= tolerance) return "right";
-      // partial: guess contains the key surname/word, or vice-versa
+      tol = ans.length > 12 ? 3 : (ans.length > 6 ? 2 : 1);
+      if (editDistance(g, ans) <= tol) return "right";
       if (ans.length >= 5 && (g.indexOf(ans) !== -1 || ans.indexOf(g) !== -1)) return "right";
     }
-    // "close" if it shares a significant word with any answer
     var gWords = g.split(" ");
     for (i = 0; i < answers.length; i++) {
       var aWords = normalize(answers[i]).split(" ");
@@ -138,25 +120,26 @@
   }
 
   function currentScore() {
-    var s = BASE_SCORE;
-    for (var i = 0; i < state.hintsRevealed; i++) s -= HINT_COST[i];
-    s -= state.wrongGuesses * WRONG_GUESS_COST;
-    return Math.max(0, s);
+    return Math.max(0, MAX_SCORE - state.opened.length * TILE_COST - state.wrongGuesses * WRONG_COST);
   }
 
   function starsFor(score) {
-    if (score >= 90) return "⭐️⭐️⭐️⭐️⭐️";
-    if (score >= 70) return "⭐️⭐️⭐️⭐️";
-    if (score >= 50) return "⭐️⭐️⭐️";
-    if (score >= 30) return "⭐️⭐️";
+    if (score >= 85) return "⭐️⭐️⭐️⭐️⭐️";
+    if (score >= 65) return "⭐️⭐️⭐️⭐️";
+    if (score >= 45) return "⭐️⭐️⭐️";
+    if (score >= 25) return "⭐️⭐️";
     if (score > 0)   return "⭐️";
     return "☆";
   }
 
-  // ======================================================================
-  // Persistence (localStorage)
-  // ======================================================================
-  var LS_PROGRESS = "datestiny.progress.";   // + key
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ===================== persistence =====================
+  var LS_PROGRESS = "datestiny.v2.progress.";
   var LS_STREAK = "datestiny.streak";
   var LS_LASTPLAYED = "datestiny.lastPlayed";
 
@@ -164,7 +147,7 @@
     if (state.practice) return;
     try {
       localStorage.setItem(LS_PROGRESS + state.key, JSON.stringify({
-        hintsRevealed: state.hintsRevealed,
+        opened: state.opened,
         wrongGuesses: state.wrongGuesses,
         solved: state.solved,
         failed: state.failed,
@@ -172,28 +155,19 @@
       }));
     } catch (e) {}
   }
-
   function loadProgress(key) {
-    try {
-      var raw = localStorage.getItem(LS_PROGRESS + key);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    try { var raw = localStorage.getItem(LS_PROGRESS + key); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
   }
-
   function getStreak() {
-    try { return parseInt(localStorage.getItem(LS_STREAK), 10) || 0; }
-    catch (e) { return 0; }
+    try { return parseInt(localStorage.getItem(LS_STREAK), 10) || 0; } catch (e) { return 0; }
   }
-
-  // Update streak when a daily puzzle is finished. Streak increments if the
-  // previous play was "yesterday", resets if a day was skipped.
   function bumpStreak(todayKey) {
     if (state.practice) return getStreak();
     try {
       var last = localStorage.getItem(LS_LASTPLAYED);
-      if (last === todayKey) return getStreak(); // already counted today
+      if (last === todayKey) return getStreak();
       var streak = getStreak();
-      // crude "consecutive day" check using the actual date
       var y = new Date(state.dateObj.getTime() - 86400000);
       var yKey = keyFromDate(y) + ":" + y.getFullYear();
       streak = (last === yKey) ? streak + 1 : 1;
@@ -203,60 +177,29 @@
     } catch (e) { return getStreak(); }
   }
 
-  // ======================================================================
-  // Rendering
-  // ======================================================================
+  // ===================== rendering =====================
+  function tiles() { return state.question.tiles || []; }
 
-  function renderHints() {
-    var boxes = els.hints.querySelectorAll(".hint-box");
-    boxes.forEach(function (box) {
-      var idx = parseInt(box.getAttribute("data-index"), 10);
-      box.classList.remove("locked", "revealed");
-      if (idx < state.hintsRevealed) {
-        box.classList.add("revealed");
-        box.innerHTML =
-          '<div class="hint-face">' +
-          '<span class="hint-label">Hint ' + (idx + 1) + '</span>' +
-          '<span class="hint-text">' + escapeHtml(state.question.hints[idx]) + '</span>' +
-          '</div>';
-      } else if (idx === state.hintsRevealed && !state.finished) {
-        // next available hint
-        box.innerHTML = hintFace(idx);
-      } else {
-        if (!state.finished) box.classList.add("locked");
-        box.innerHTML = hintFace(idx);
-      }
-    });
-  }
-
-  function hintFace(idx) {
-    var subs = ["Cryptic · −0 pts", "Warmer · −20 pts", "Giveaway · −20 pts"];
-    return '<div class="hint-face">' +
-      '<span class="hint-label">Hint ' + (idx + 1) + '</span>' +
-      '<span class="hint-sub">' + subs[idx] + '</span>' +
-      '</div>';
-  }
-
-  function renderScore() {
-    els.scoreNum.textContent = currentScore();
-  }
-
-  function renderTries() {
-    var dots = "";
-    var total = Math.max(state.wrongGuesses, 0);
-    for (var i = 0; i < total; i++) dots += '<span class="try-dot miss"></span>';
-    els.triesDots.innerHTML = dots;
-    if (state.wrongGuesses === 0) {
-      els.triesText.textContent = "No misses";
-    } else {
-      els.triesText.textContent = state.wrongGuesses + (state.wrongGuesses === 1 ? " miss" : " misses");
+  function renderBoard() {
+    var t = tiles();
+    var html = "";
+    for (var i = 0; i < t.length; i++) {
+      var isOpen = state.opened.indexOf(i) !== -1 || state.finished;
+      html += '<button class="tile' + (isOpen ? " open" : "") + (state.finished ? " disabled" : "") +
+              '" data-index="' + i + '"' + (isOpen || state.finished ? ' tabindex="-1"' : "") + '>' +
+              '<span class="tile-num">' + (i + 1) + '</span>' +
+              '<span class="tile-clue">' + escapeHtml(t[i]) + '</span>' +
+              '</button>';
     }
+    els.tileGrid.innerHTML = html;
   }
 
-  function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-    });
+  function renderScore() { els.scoreNum.textContent = currentScore(); }
+  function renderTries() {
+    var n = state.opened.length;
+    var bits = n + " / " + TILE_COUNT + " tiles open";
+    if (state.wrongGuesses > 0) bits += " · " + state.wrongGuesses + (state.wrongGuesses === 1 ? " miss" : " misses");
+    els.triesText.textContent = bits;
   }
 
   function setFeedback(text, cls) {
@@ -264,39 +207,30 @@
     els.feedback.className = "feedback" + (cls ? " " + cls : "");
   }
 
-  // ======================================================================
-  // Game actions
-  // ======================================================================
-
-  function revealHint(idx) {
+  // ===================== actions =====================
+  function openTile(idx) {
     if (state.finished) return;
-    if (idx !== state.hintsRevealed) return; // only the next one
-    state.hintsRevealed = idx + 1;
-    renderHints();
+    if (state.opened.indexOf(idx) !== -1) return;
+    if (idx < 0 || idx >= tiles().length) return;
+    state.opened.push(idx);
+    renderBoard();
     renderScore();
+    renderTries();
     saveProgress();
   }
 
   function submitGuess(value) {
     if (state.finished) return;
     var verdict = checkGuess(value, state.question.answers);
-    if (verdict === "right") {
-      finishGame(true);
-      return;
-    }
+    if (verdict === "right") { finishGame(true); return; }
     state.wrongGuesses += 1;
-    renderTries();
     renderScore();
+    renderTries();
     saveProgress();
     if (verdict === "close") {
-      setFeedback("So close! You're on the right track — refine your answer.", "close");
+      setFeedback("So close! You're on the right track — refine it.", "close");
     } else {
-      var msgs = [
-        "Not quite. Try a hint?",
-        "Nope! Think about the era.",
-        "Wrong — but don't give up.",
-        "Missed it. A hint might help."
-      ];
+      var msgs = ["Not quite. Open another tile?", "Nope — try another clue.", "Wrong, but keep going.", "Missed it. A tile might help."];
       setFeedback(msgs[Math.min(state.wrongGuesses - 1, msgs.length - 1)], "wrong");
     }
     els.guessInput.select();
@@ -307,198 +241,91 @@
     state.failed = !won;
     state.finished = true;
     saveProgress();
-
-    var streak = won ? bumpStreak(state.key + ":" + state.dateObj.getFullYear())
-                     : getStreak();
+    var streak = won ? bumpStreak(state.key + ":" + state.dateObj.getFullYear()) : getStreak();
     els.streakValue.textContent = streak;
-
-    renderHints();
+    renderBoard();   // reveal all tiles
     showResult(won);
   }
 
   function showResult(won) {
     els.gameCard.classList.add("hidden");
     els.resultCard.classList.remove("hidden");
-
     var score = won ? currentScore() : 0;
-    els.resultEmoji.textContent = won ? pickWinEmoji(score) : "📚";
+    els.resultEmoji.textContent = won ? winEmoji(score) : "📚";
     els.resultTitle.textContent = won ? winTitle(score) : "Out of luck!";
     els.resultAnswer.innerHTML = escapeHtml(state.question.answers[0]);
     els.bigScore.textContent = score;
     els.starsRating.textContent = starsFor(score);
-    els.funFact.textContent = state.question.funFact || "";
-    els.funFact.style.display = state.question.funFact ? "" : "none";
+    els.resultTiles.textContent = won
+      ? "Solved with " + state.opened.length + " of " + TILE_COUNT + " tiles open" +
+        (state.wrongGuesses ? " and " + state.wrongGuesses + (state.wrongGuesses === 1 ? " wrong guess" : " wrong guesses") : "") + "."
+      : "You opened " + state.opened.length + " of " + TILE_COUNT + " tiles.";
+    els.funFact.textContent = state.question.explanation || "";
+    els.funFact.style.display = state.question.explanation ? "" : "none";
   }
 
-  function pickWinEmoji(score) {
-    if (score >= 90) return "🏆";
-    if (score >= 70) return "🎉";
-    if (score >= 50) return "👏";
-    return "🙂";
-  }
+  function winEmoji(s) { return s >= 85 ? "🏆" : s >= 65 ? "🎉" : s >= 45 ? "👏" : "🙂"; }
+  function winTitle(s) { return s >= 85 ? "Brilliant!" : s >= 65 ? "Well done!" : s >= 45 ? "Solved it!" : "Got there!"; }
 
-  function winTitle(score) {
-    if (score >= 90) return "Brilliant!";
-    if (score >= 70) return "Well done!";
-    if (score >= 50) return "Solved it!";
-    return "Got there!";
-  }
-
-  // ======================================================================
-  // Share
-  // ======================================================================
-
+  // ===================== share =====================
   function buildShareText() {
     var score = state.solved ? currentScore() : 0;
     var line = "📜 Datestiny — " + prettyDate(state.dateObj);
-    // hint usage row: filled square per hint used, hollow per unused
-    var hintRow = "";
-    for (var i = 0; i < 3; i++) hintRow += (i < state.hintsRevealed ? "🟨" : "⬜");
-    // guess row: red per wrong guess, green for the solve
-    var guessRow = "";
-    for (var j = 0; j < state.wrongGuesses; j++) guessRow += "🟥";
-    guessRow += state.solved ? "🟩" : "⬛";
-
-    var body =
-      line + "\n" +
-      "Hints " + hintRow + "  Guesses " + guessRow + "\n" +
-      (state.solved
-        ? "Score " + score + "/100 " + starsFor(score)
-        : "Stumped! 📚") +
-      "\n" + location.origin + (location.pathname === "/" ? "" : location.pathname);
-    return body;
+    // 12-tile grid: opened = 🟦, unopened = ⬛
+    var grid = "";
+    for (var i = 0; i < TILE_COUNT; i++) {
+      grid += (state.opened.indexOf(i) !== -1) ? "🟦" : "⬛";
+      if (i % 4 === 3) grid += "\n";
+    }
+    var summary = state.solved
+      ? "Solved with " + state.opened.length + "/" + TILE_COUNT + " tiles · " + score + " pts " + starsFor(score)
+      : "Stumped! 📚";
+    return line + "\n" + grid + summary + "\n" + location.origin + (location.pathname === "/" ? "" : location.pathname);
   }
 
   function doShare() {
     var text = buildShareText();
-    if (navigator.share) {
-      navigator.share({ title: "Datestiny", text: text }).catch(function () {});
-      return;
-    }
-    copyText(text).then(function () {
-      toast("Result copied to clipboard!");
-    }, function () {
-      toast("Couldn't copy — select and copy manually.");
-    });
+    if (navigator.share) { navigator.share({ title: "Datestiny", text: text }).catch(function () {}); return; }
+    copyText(text).then(function () { toast("Result copied to clipboard!"); },
+                        function () { toast("Couldn't copy — select and copy manually."); });
   }
-
   function copyText(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
     return new Promise(function (resolve, reject) {
       try {
         var ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        resolve();
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+        document.body.removeChild(ta); resolve();
       } catch (e) { reject(e); }
     });
   }
-
   var toastTimer = null;
   function toast(msg) {
-    els.toast.textContent = msg;
-    els.toast.classList.add("show");
+    els.toast.textContent = msg; els.toast.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 2200);
   }
 
-  // ======================================================================
-  // Countdown to next puzzle
-  // ======================================================================
+  // ===================== countdown =====================
   function startCountdown() {
     function tick() {
       var now = new Date();
       var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
       var diff = next - now;
-      var h = Math.floor(diff / 3600000);
-      var m = Math.floor((diff % 3600000) / 60000);
-      var s = Math.floor((diff % 60000) / 1000);
+      var h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
       els.countdown.textContent = "Next question in " + pad(h) + ":" + pad(m) + ":" + pad(s);
     }
-    tick();
-    setInterval(tick, 1000);
+    tick(); setInterval(tick, 1000);
   }
 
-  // ======================================================================
-  // Practice mode (random past day)
-  // ======================================================================
+  // ===================== practice =====================
   function playRandom() {
     var keys = Object.keys(window.QUESTIONS || {});
     if (!keys.length) return;
     var key;
-    do { key = keys[Math.floor(Math.random() * keys.length)]; }
-    while (key === state.key && keys.length > 1);
+    do { key = keys[Math.floor(Math.random() * keys.length)]; } while (key === state.key && keys.length > 1);
     loadPuzzle(key, true);
-  }
-
-  // ======================================================================
-  // Boot
-  // ======================================================================
-
-  function loadPuzzle(forceKey, isPractice) {
-    var today = new Date();
-    var key = forceKey || keyFromDate(today);
-    var picked = pickQuestion(key);
-    if (!picked) {
-      els.question.textContent = "No questions available.";
-      return;
-    }
-
-    state.key = isPractice ? picked.key : key;
-    state.dateObj = today;
-    state.question = picked.q;
-    state.hintsRevealed = 0;
-    state.wrongGuesses = 0;
-    state.solved = false;
-    state.failed = false;
-    state.finished = false;
-    state.practice = !!isPractice;
-
-    // restore saved progress for the real daily puzzle
-    if (!isPractice) {
-      var saved = loadProgress(state.key);
-      if (saved) {
-        state.hintsRevealed = saved.hintsRevealed || 0;
-        state.wrongGuesses = saved.wrongGuesses || 0;
-        state.solved = !!saved.solved;
-        state.failed = !!saved.failed;
-        state.finished = !!saved.finished;
-      }
-    }
-
-    // header
-    els.dateBadge.textContent = isPractice
-      ? "Flashback · " + monthDayLabel(picked.key)
-      : "On this day · " + prettyDate(today);
-    els.categoryBadge.textContent = state.question.category || "History";
-    els.question.textContent = state.question.prompt;
-    els.lede.textContent = state.practice
-      ? "Practice round — replaying a past day. Streak not affected."
-      : "Reveal a hint only if you need it — fewer hints means a higher score.";
-
-    // reset UI
-    els.gameCard.classList.remove("hidden");
-    els.resultCard.classList.add("hidden");
-    setFeedback("", "");
-    els.guessInput.value = "";
-    els.streakValue.textContent = getStreak();
-
-    renderHints();
-    renderScore();
-    renderTries();
-
-    if (state.finished) {
-      showResult(state.solved);
-    } else {
-      els.guessInput.focus();
-    }
   }
 
   function monthDayLabel(key) {
@@ -506,13 +333,53 @@
     return MONTHS[parseInt(parts[0], 10) - 1] + " " + parseInt(parts[1], 10);
   }
 
+  // ===================== boot =====================
+  function loadPuzzle(forceKey, isPractice) {
+    var today = new Date();
+    var key = forceKey || keyFromDate(today);
+    var picked = pickQuestion(key);
+    if (!picked) { els.lede.textContent = "No questions available."; return; }
+
+    state.key = isPractice ? picked.key : key;
+    state.dateObj = today;
+    state.question = picked.q;
+    state.opened = [];
+    state.wrongGuesses = 0;
+    state.solved = false; state.failed = false; state.finished = false;
+    state.practice = !!isPractice;
+
+    if (!isPractice) {
+      var saved = loadProgress(state.key);
+      if (saved) {
+        state.opened = saved.opened || [];
+        state.wrongGuesses = saved.wrongGuesses || 0;
+        state.solved = !!saved.solved; state.failed = !!saved.failed; state.finished = !!saved.finished;
+      }
+    }
+
+    els.dateBadge.textContent = isPractice ? "Flashback · " + monthDayLabel(picked.key) : "On this day · " + prettyDate(today);
+    els.categoryBadge.textContent = state.question.category || "Mystery";
+    els.lede.textContent = state.practice
+      ? "Practice round — a past day. Streak not affected. Open as few tiles as you can."
+      : "Twelve clues hide behind these tiles. Open as few as you can, then name what links them. Each tile costs points.";
+
+    els.gameCard.classList.remove("hidden");
+    els.resultCard.classList.add("hidden");
+    setFeedback("", "");
+    els.guessInput.value = "";
+    els.streakValue.textContent = getStreak();
+
+    renderBoard(); renderScore(); renderTries();
+
+    if (state.finished) showResult(state.solved);
+    else els.guessInput.focus();
+  }
+
   function wireEvents() {
-    // hint clicks (delegated)
-    els.hints.addEventListener("click", function (e) {
-      var box = e.target.closest(".hint-box");
-      if (!box) return;
-      var idx = parseInt(box.getAttribute("data-index"), 10);
-      revealHint(idx);
+    els.tileGrid.addEventListener("click", function (e) {
+      var tile = e.target.closest(".tile");
+      if (!tile) return;
+      openTile(parseInt(tile.getAttribute("data-index"), 10));
     });
 
     els.guessForm.addEventListener("submit", function (e) {
@@ -532,18 +399,13 @@
     els.shareBtn.addEventListener("click", doShare);
     els.practiceBtn.addEventListener("click", playRandom);
 
-    // modal
     function openModal() { els.howToModal.classList.remove("hidden"); }
     function closeModal() { els.howToModal.classList.add("hidden"); }
     els.howToBtn.addEventListener("click", openModal);
     els.modalClose.addEventListener("click", closeModal);
     els.gotItBtn.addEventListener("click", closeModal);
-    els.howToModal.addEventListener("click", function (e) {
-      if (e.target === els.howToModal) closeModal();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") closeModal();
-    });
+    els.howToModal.addEventListener("click", function (e) { if (e.target === els.howToModal) closeModal(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
 
     $("streakChip").addEventListener("click", function () {
       var s = getStreak();
@@ -552,26 +414,18 @@
   }
 
   function init() {
-    if (!window.QUESTIONS) {
-      els.question.textContent = "Failed to load questions.";
-      return;
-    }
+    if (!window.QUESTIONS) { els.lede.textContent = "Failed to load questions."; return; }
     wireEvents();
     loadPuzzle(null, false);
     startCountdown();
-
-    // first-time visitors see the rules
     try {
-      if (!localStorage.getItem("datestiny.seenRules")) {
+      if (!localStorage.getItem("datestiny.seenRulesV2")) {
         els.howToModal.classList.remove("hidden");
-        localStorage.setItem("datestiny.seenRules", "1");
+        localStorage.setItem("datestiny.seenRulesV2", "1");
       }
     } catch (e) {}
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();

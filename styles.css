@@ -263,6 +263,7 @@ body {
 
 .footer { text-align: center; padding: 18px; color: var(--muted-2); font-size: 13px; display: flex; gap: 10px; justify-content: center; align-items: center; }
 .footer .dot { opacity: 0.5; }
+.footer-quote { font-family: var(--font-display); font-style: italic; color: var(--gold); }
 
 /* modal */
 .modal-overlay {

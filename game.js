@@ -57,21 +57,6 @@
   var MONTHS = ["January","February","March","April","May","June","July",
     "August","September","October","November","December"];
 
-  // A wink to Forrest Gump. One is shown each day, picked by the date.
-  var QUOTES = [
-    "My mama always said life is like a box of tiles, you never know which clue you're gonna get.",
-    "I'm not a smart man, but I know what today's answer is.",
-    "Stupid is as stupid does, but a wise guesser opens fewer tiles.",
-    "Mama says the fewer tiles you flip, the sweeter the chocolate.",
-    "Run, guess, run. That's all I have to say about that.",
-    "Life's a mystery box, and every tile is a chocolate you haven't tasted yet."
-  ];
-
-  function quoteOfTheDay(d) {
-    var dayNum = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())) / 86400000);
-    return QUOTES[((dayNum % QUOTES.length) + QUOTES.length) % QUOTES.length];
-  }
-
   // ===================== helpers =====================
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
   function keyFromDate(d) { return pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -390,7 +375,6 @@
 
     els.dateBadge.textContent = isPractice ? "Flashback · " + monthDayLabel(picked.key) : "On this day · " + prettyDate(today);
     els.categoryBadge.textContent = state.question.category || "Mystery";
-    if (els.quoteLine) els.quoteLine.textContent = quoteOfTheDay(today);
     els.lede.textContent = state.practice
       ? "Practice round, a past day. Streak not affected. Open as few tiles as you can."
       : "Twelve clues hide behind these tiles. Open as few as you can, then name what links them. Each tile costs points.";
